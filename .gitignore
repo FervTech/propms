@@ -7,7 +7,7 @@ dist
 
 # Environment — NEVER commit
 .env
-env.js
+
 .env.local
 .env.production
 
