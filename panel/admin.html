@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PropMS Admin</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../env.js"></script>
+  <script src="../js/config.js" onerror="void 0"></script>
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+
+<!-- ══ LOGIN ══ -->
+<div id="admin-login">
+  <div class="admin-login-card">
+    <div class="admin-login-logo">
+      <i class="fa-solid fa-shield-halved"></i>
+    </div>
+    <div class="admin-login-title">PropMS Admin</div>
+    <div class="admin-login-sub">Restricted access — authorised personnel only</div>
+    <div class="form-row"><label>Email</label><input type="email" id="admin-email" placeholder="admin@propms.com"></div>
+    <div class="form-row"><label>Password</label><input type="password" id="admin-password" placeholder="••••••••"></div>
+    <div id="admin-login-error" class="admin-error" style="display:none"></div>
+    <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="adminLogin()">
+      <i class="fa-solid fa-right-to-bracket"></i> Sign In to Admin
+    </button>
+  </div>
+</div>
+
+<!-- ══ ADMIN APP ══ -->
+<div id="admin-app" style="display:none">
+
+  <!-- SIDEBAR -->
+  <aside id="admin-sidebar">
+    <div class="admin-sidebar-logo">
+      <div class="admin-logo-icon"><i class="fa-solid fa-shield-halved"></i></div>
+      <div>
+        <div class="admin-logo-text">PropMS <span>Admin</span></div>
+        <div class="admin-logo-sub">Control Panel</div>
+      </div>
+    </div>
+    <nav>
+      <div class="nav-label">Overview</div>
+      <a class="nav-item active" data-page="overview" onclick="adminNavigate('overview')">
+        <i class="fa-solid fa-chart-pie"></i> Overview
+      </a>
+      <div class="nav-label">Analytics</div>
+      <a class="nav-item" data-page="analytics" onclick="adminNavigate('analytics')">
+        <i class="fa-solid fa-chart-simple"></i> Analytics & Reports
+      </a>
+      <div class="nav-label">Users</div>
+      <a class="nav-item" data-page="users" onclick="adminNavigate('users')">
+        <i class="fa-solid fa-users"></i> All Users
+        <span class="nav-count" id="nb-users">0</span>
+      </a>
+      <a class="nav-item" data-page="suspended" onclick="adminNavigate('suspended')">
+        <i class="fa-solid fa-ban"></i> Suspended
+        <span class="nav-count danger" id="nb-suspended">0</span>
+      </a>
+      <div class="nav-label">Subscriptions</div>
+      <a class="nav-item" data-page="plans" onclick="adminNavigate('plans')">
+        <i class="fa-solid fa-tags"></i> Plans
+      </a>
+      <a class="nav-item" data-page="subscriptions" onclick="adminNavigate('subscriptions')">
+        <i class="fa-solid fa-credit-card"></i> Subscriptions
+      </a>
+      <div class="nav-label">System</div>
+      <a class="nav-item" data-page="events" onclick="adminNavigate('events')">
+        <i class="fa-solid fa-clock-rotate-left"></i> Audit Log
+      </a>
+      <a class="nav-item" data-page="settings" onclick="adminNavigate('settings')">
+        <i class="fa-solid fa-gear"></i> Admin Settings
+      </a>
+    </nav>
+    <div class="admin-sidebar-footer">
+      <div class="admin-user-pill" onclick="adminLogout()">
+        <div class="admin-avatar"><i class="fa-solid fa-user-shield"></i></div>
+        <div>
+          <div id="admin-display-name" style="font-size:12.5px;font-weight:500">Admin</div>
+          <div style="font-size:11px;color:var(--text-muted)">Click to log out</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div id="admin-main">
+    <header id="admin-topbar">
+      <div id="admin-page-title" style="font-size:16px;font-weight:600;flex:1">Overview</div>
+      <div id="admin-topbar-actions"></div>
+      <div class="admin-env-badge" id="admin-env-badge">DEMO MODE</div>
+    </header>
+
+    <div id="admin-content">
+
+      <!-- ─── OVERVIEW ─── -->
+      <div class="admin-page active" id="admin-page-overview">
+        <div class="stats-grid">
+          <div class="stat-card"><div class="stat-label">Total Users</div><div class="stat-value" id="ov-total">—</div><div class="stat-sub">registered accounts</div></div>
+          <div class="stat-card"><div class="stat-label">Active</div><div class="stat-value" style="color:var(--success)" id="ov-active">—</div><div class="stat-sub">paying or trial</div></div>
+          <div class="stat-card"><div class="stat-label">Suspended</div><div class="stat-value" style="color:var(--danger)" id="ov-suspended">—</div><div class="stat-sub">access blocked</div></div>
+          <div class="stat-card"><div class="stat-label">MRR</div><div class="stat-value" style="color:var(--success)" id="ov-mrr">—</div><div class="stat-sub">monthly recurring</div></div>
+        </div>
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-title">Users by Plan</div>
+            <div id="ov-plan-breakdown"></div>
+          </div>
+          <div class="card">
+            <div class="card-title">Recent Signups</div>
+            <div id="ov-recent-signups"></div>
+          </div>
+        </div>
+        <div class="card" style="margin-top:16px">
+          <div class="card-title">Subscription Events <span style="font-size:11px;color:var(--text-muted)">last 30 days</span></div>
+          <div id="ov-events"></div>
+        </div>
+      </div>
+
+      <!-- ─── ANALYTICS ─── -->
+      <div class="admin-page" id="admin-page-analytics">
+        <div style="margin-bottom:16px">
+          <div class="report-period-tabs" id="analytics-tabs">
+            <button class="period-tab active" onclick="setAnalyticsPeriod('daily',this)">Daily</button>
+            <button class="period-tab" onclick="setAnalyticsPeriod('weekly',this)">Weekly</button>
+            <button class="period-tab" onclick="setAnalyticsPeriod('monthly',this)">Monthly</button>
+            <button class="period-tab" onclick="setAnalyticsPeriod('yearly',this)">Yearly</button>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;align-items:center">
+            <span style="font-size:13px;color:var(--text-secondary)">Export:</span>
+            <button class="btn btn-sm" onclick="exportAnalytics('csv')"><i class="fa-solid fa-file-csv"></i> CSV</button>
+            <button class="btn btn-sm" onclick="exportAnalytics('json')"><i class="fa-solid fa-file-code"></i> JSON</button>
+            <div style="flex:1;min-width:20px"></div>
+            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+              <span style="font-size:12px;color:var(--text-muted)">Range:</span>
+              <button class="range-btn active" data-range="24h" onclick="setAnalyticsRange('24h',this)">24h</button>
+              <button class="range-btn" data-range="7d" onclick="setAnalyticsRange('7d',this)">7d</button>
+              <button class="range-btn" data-range="1m" onclick="setAnalyticsRange('1m',this)">1m</button>
+              <button class="range-btn" data-range="custom" onclick="setAnalyticsRange('custom',this)">Custom</button>
+            </div>
+          </div>
+          <div id="analytics-custom-range" style="display:none;margin-top:8px;gap:10px;flex-wrap:wrap">
+            <input type="date" id="analytics-date-from" onchange="renderAnalytics()" style="width:auto">
+            <input type="date" id="analytics-date-to" onchange="renderAnalytics()" style="width:auto">
+          </div>
+        </div>
+
+        <div class="stats-grid" id="analytics-metrics">
+          <div class="stat-card"><div class="stat-label">Total Users</div><div class="stat-value" id="ana-total">—</div></div>
+          <div class="stat-card"><div class="stat-label">Active</div><div class="stat-value" id="ana-active">—</div></div>
+          <div class="stat-card"><div class="stat-label">Suspended</div><div class="stat-value" id="ana-suspended">—</div></div>
+          <div class="stat-card"><div class="stat-label">New Signups</div><div class="stat-value" id="ana-new">—</div></div>
+        </div>
+
+        <div class="grid-2" style="margin-bottom:20px">
+          <div class="card">
+            <div class="card-title">User Growth</div>
+            <div id="ana-growth-chart" style="padding:8px 0"></div>
+          </div>
+          <div class="card">
+            <div class="card-title">Plan Distribution</div>
+            <div id="ana-plan-distribution"></div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ─── ALL USERS ─── -->
+      <div class="admin-page" id="admin-page-users">
+        <div style="display:flex;justify-content:flex-end;margin-bottom:14px">
+          <button class="btn btn-primary" onclick="openRegisterModal()">
+            <i class="fa-solid fa-user-plus"></i> Register New User
+          </button>
+        </div>
+        <div class="filter-bar">
+          <div class="search-wrap">
+            <i class="fa-solid fa-magnifying-glass search-icon"></i>
+            <input type="text" placeholder="Search by name or email…" id="user-search" oninput="filterUsers()">
+          </div>
+          <select class="filter-select" id="user-plan-filter" onchange="filterUsers()">
+            <option value="">All plans</option>
+            <option value="free_trial">Free Trial</option>
+            <option value="basic">Basic</option>
+            <option value="pro">Pro</option>
+            <option value="premium">Premium</option>
+            <option value="special">Special</option>
+          </select>
+          <select class="filter-select" id="user-status-filter" onchange="filterUsers()">
+            <option value="">All statuses</option>
+            <option value="active">Active</option>
+            <option value="suspended">Suspended</option>
+            <option value="cancelled">Cancelled</option>
+            <option value="past_due">Past Due</option>
+          </select>
+          <button class="btn btn-sm" onclick="exportUsersCSV()"><i class="fa-solid fa-file-csv"></i> Export</button>
+        </div>
+        <div class="card" style="padding:0">
+          <div class="table-wrap">
+            <table>
+              <thead><tr>
+                <th>User</th><th>Plan</th><th>Status</th>
+                <th>Admin</th>
+                <th>Trial / Sub Ends</th>
+                <th>Properties</th><th>Tenants</th><th>Joined</th><th>Actions</th>
+              </tr></thead>
+              <tbody id="users-tbody">
+              <tr><td colspan="9"><div class="loading"><div class="spinner"></div> Loading…</div></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="pagination-bar" id="users-pagination"></div>
+        </div>
+      </div>
+
+      <!-- ─── SUSPENDED ─── -->
+      <div class="admin-page" id="admin-page-suspended">
+        <div class="card" style="padding:0">
+          <div class="table-wrap">
+            <table>
+              <thead><tr>
+                <th>User</th><th>Plan</th><th>Suspended At</th><th>Reason</th><th>Actions</th>
+              </tr></thead>
+              <tbody id="suspended-tbody">
+              <tr><td colspan="5"><div class="loading"><div class="spinner"></div></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─── PLANS ─── -->
+      <div class="admin-page" id="admin-page-plans">
+        <div class="plans-grid" id="plans-grid"></div>
+      </div>
+
+      <!-- ─── SUBSCRIPTIONS ─── -->
+      <div class="admin-page" id="admin-page-subscriptions">
+        <div class="filter-bar">
+          <select class="filter-select" id="sub-plan-filter" onchange="filterSubscriptions()">
+            <option value="">All plans</option>
+            <option value="free_trial">Free Trial</option>
+            <option value="basic">Basic</option>
+            <option value="pro">Pro</option>
+            <option value="premium">Premium</option>
+            <option value="special">Special</option>
+          </select>
+          <select class="filter-select" id="sub-status-filter" onchange="filterSubscriptions()">
+            <option value="">All statuses</option>
+            <option value="active">Active</option>
+            <option value="suspended">Suspended</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+        </div>
+        <div class="card" style="padding:0">
+          <div class="table-wrap">
+            <table>
+              <thead><tr>
+                <th>User</th><th>Plan</th><th>Cycle</th><th>Status</th>
+                <th>Renewal</th><th>MRR</th><th>Actions</th>
+              </tr></thead>
+              <tbody id="subs-tbody">
+              <tr><td colspan="7"><div class="loading"><div class="spinner"></div></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="pagination-bar" id="subs-pagination"></div>
+        </div>
+      </div>
+
+      <!-- ─── AUDIT LOG ─── -->
+      <div class="admin-page" id="admin-page-events">
+        <div class="filter-bar">
+          <div class="search-wrap">
+            <i class="fa-solid fa-magnifying-glass search-icon"></i>
+            <input type="text" placeholder="Search by email, action, or details…" id="event-search" oninput="renderEvents()">
+          </div>
+          <select class="filter-select" id="event-action-filter" onchange="renderEvents()">
+            <option value="">All actions</option>
+            <option value="user_registered">User Registered</option>
+            <option value="user_deleted">User Deleted</option>
+            <option value="user_suspended">User Suspended</option>
+            <option value="user_reactivated">User Reactivated</option>
+            <option value="plan_changed">Plan Changed</option>
+            <option value="user_updated">User Updated</option>
+          </select>
+          <input type="date" id="event-date-from" onchange="renderEvents()" title="From date" style="width:140px;min-width:0">
+          <input type="date" id="event-date-to" onchange="renderEvents()" title="To date" style="width:140px;min-width:0">
+          <button class="btn btn-danger btn-sm" onclick="clearAuditLog()">
+            <i class="fa-solid fa-trash"></i> Clear All
+          </button>
+        </div>
+        <div class="card" style="padding:0">
+          <div class="table-wrap">
+            <table>
+              <thead><tr>
+                <th>Date</th>
+                <th>Admin</th>
+                <th>Action</th>
+                <th>Target User</th>
+                <th>Details</th>
+              </tr></thead>
+              <tbody id="events-tbody">
+              <tr><td colspan="5"><div class="loading"><div class="spinner"></div></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="pagination-bar" id="events-pagination"></div>
+        </div>
+      </div>
+
+      <!-- ─── ADMIN SETTINGS ─── -->
+      <div class="admin-page" id="admin-page-settings">
+        <div style="max-width:600px">
+          <div class="card" style="margin-bottom:20px">
+            <div class="card-title">Supabase Connection</div>
+            <div id="settings-connection-status" style="margin-bottom:14px"></div>
+            <div class="form-row"><label>Supabase URL</label>
+              <input type="text" id="settings-sb-url" placeholder="https://xxx.supabase.co" readonly>
+            </div>
+            <div class="form-row"><label>Anon Key (truncated)</label>
+              <input type="text" id="settings-sb-key" placeholder="eyJ…" readonly>
+            </div>
+          </div>
+          <div class="card" style="margin-bottom:20px">
+            <div class="card-title">Trial Settings</div>
+            <div class="form-row">
+              <label>Free Trial Duration (days)</label>
+              <input type="number" id="settings-trial-days" value="14" min="1" max="90">
+            </div>
+            <button class="btn btn-primary" onclick="saveAdminSettings()"><i class="fa-solid fa-floppy-disk"></i> Save</button>
+          </div>
+          <div class="card">
+            <div class="card-title">Admin Actions</div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap">
+              <button class="btn" onclick="runExpireTrials()"><i class="fa-solid fa-clock"></i> Expire Overdue Trials</button>
+              <button class="btn" onclick="adminNavigate('events')"><i class="fa-solid fa-list"></i> View Full Audit Log</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /admin-content -->
+  </div><!-- /admin-main -->
+</div><!-- /admin-app -->
+
+
+<!-- ══ MODALS ══ -->
+
+<!-- User Detail / Edit -->
+<div class="overlay" id="modal-user">
+  <div class="modal modal-wide">
+    <div class="modal-title">
+      <span><i class="fa-solid fa-user" style="margin-right:8px;color:var(--accent-hover)"></i><span id="user-modal-name">User</span></span>
+      <button class="modal-close" onclick="closeAdminModal('modal-user')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div id="user-modal-content"></div>
+    <div class="form-actions">
+      <button class="btn" onclick="closeAdminModal('modal-user')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Change Plan -->
+<div class="overlay" id="modal-change-plan">
+  <div class="modal">
+    <div class="modal-title">
+      Change Subscription Plan
+      <button class="modal-close" onclick="closeAdminModal('modal-change-plan')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <input type="hidden" id="cp-user-id">
+    <div class="form-row">
+      <label>User</label>
+      <div id="cp-user-name" style="font-weight:500;padding:8px 0"></div>
+    </div>
+    <div class="form-row">
+      <label>New Plan</label>
+      <select id="cp-plan">
+        <option value="free_trial">Free Trial</option>
+        <option value="basic">Basic</option>
+        <option value="pro">Pro</option>
+        <option value="premium">Premium</option>
+        <option value="special">Special — Admin Only</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <label>Billing Cycle</label>
+      <select id="cp-cycle">
+        <option value="monthly">Monthly</option>
+        <option value="yearly">Yearly</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <label>Notes (optional)</label>
+      <textarea id="cp-notes" style="min-height:60px" placeholder="Reason for plan change…"></textarea>
+    </div>
+    <div class="form-actions">
+      <button class="btn" onclick="closeAdminModal('modal-change-plan')">Cancel</button>
+      <button class="btn btn-primary" onclick="confirmChangePlan()"><i class="fa-solid fa-check"></i> Apply Change</button>
+    </div>
+  </div>
+</div>
+
+<!-- Suspend User -->
+<div class="overlay" id="modal-suspend">
+  <div class="modal">
+    <div class="modal-title">
+      <span style="color:var(--danger)"><i class="fa-solid fa-ban" style="margin-right:8px"></i>Suspend Account</span>
+      <button class="modal-close" onclick="closeAdminModal('modal-suspend')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <input type="hidden" id="suspend-user-id">
+    <div style="margin-bottom:14px">
+      <div style="font-size:13px;color:var(--text-secondary)">You are about to suspend access for:</div>
+      <div id="suspend-user-name" style="font-weight:600;font-size:15px;margin-top:4px"></div>
+    </div>
+    <div class="form-row">
+      <label>Reason <span style="color:var(--danger)">*</span></label>
+      <select id="suspend-reason-preset" onchange="setSuspendReason(this.value)">
+        <option value="">— Select reason —</option>
+        <option value="Subscription payment failed">Payment failed</option>
+        <option value="Free trial expired">Trial expired</option>
+        <option value="Terms of service violation">ToS violation</option>
+        <option value="Requested by user">User request</option>
+        <option value="Fraudulent activity">Fraud</option>
+        <option value="custom">Custom reason…</option>
+      </select>
+    </div>
+    <div class="form-row" id="suspend-custom-row" style="display:none">
+      <label>Custom Reason</label>
+      <textarea id="suspend-reason" style="min-height:60px" placeholder="Describe the reason for suspension…"></textarea>
+    </div>
+    <div style="background:var(--danger-dim);border:1px solid var(--danger);border-radius:8px;padding:10px 14px;font-size:12.5px;color:var(--danger);margin-bottom:16px">
+      <i class="fa-solid fa-triangle-exclamation" style="margin-right:6px"></i>
+      The user will immediately lose access to PropMS. Their data is preserved.
+    </div>
+    <div class="form-actions">
+      <button class="btn" onclick="closeAdminModal('modal-suspend')">Cancel</button>
+      <button class="btn btn-danger" onclick="confirmSuspend()"><i class="fa-solid fa-ban"></i> Suspend Account</button>
+    </div>
+  </div>
+</div>
+
+<!-- Reactivate User -->
+<div class="overlay" id="modal-reactivate">
+  <div class="modal">
+    <div class="modal-title">
+      <span style="color:var(--success)"><i class="fa-solid fa-circle-check" style="margin-right:8px"></i>Reactivate Account</span>
+      <button class="modal-close" onclick="closeAdminModal('modal-reactivate')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <input type="hidden" id="react-user-id">
+    <div style="margin-bottom:14px">
+      <div style="font-size:13px;color:var(--text-secondary)">Reactivating account for:</div>
+      <div id="react-user-name" style="font-weight:600;font-size:15px;margin-top:4px"></div>
+    </div>
+    <div class="form-row">
+      <label>Assign Plan</label>
+      <select id="react-plan">
+        <option value="free_trial">Free Trial</option>
+        <option value="basic">Basic — $19.99/mo</option>
+        <option value="pro">Pro — $49.99/mo</option>
+        <option value="premium">Premium — $99.99/mo</option>
+        <option value="special">Special — Admin Only</option>
+      </select>
+    </div>
+    <div class="form-actions">
+      <button class="btn" onclick="closeAdminModal('modal-reactivate')">Cancel</button>
+      <button class="btn btn-success" onclick="confirmReactivate()"><i class="fa-solid fa-circle-check"></i> Reactivate</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div id="admin-toast-container"></div>
+
+<!-- Edit User Modal -->
+<div class="overlay" id="modal-edit-user">
+  <div class="modal">
+    <div class="modal-title">
+      <span><i class="fa-solid fa-pen" style="margin-right:8px;color:var(--accent-hover)"></i>Edit User Profile</span>
+      <button class="modal-close" onclick="closeAdminModal('modal-edit-user')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <input type="hidden" id="edit-user-id">
+    <div id="edit-user-error" style="display:none;background:var(--danger-dim);border:1px solid var(--danger);color:var(--danger);border-radius:8px;padding:8px 12px;font-size:12.5px;margin-bottom:14px"></div>
+    <div class="form-row-2">
+      <div><label>Full Name <span style="color:var(--danger)">*</span></label><input type="text" id="edit-user-name" placeholder="Full name"></div>
+      <div><label>Email (read-only)</label><input type="email" id="edit-user-email" readonly style="opacity:0.6;cursor:default"></div>
+    </div>
+    <div class="form-row-2">
+      <div><label>Company</label><input type="text" id="edit-user-company" placeholder="Company name"></div>
+      <div><label>Phone</label><input type="tel" id="edit-user-phone" placeholder="+1 555 000 0000"></div>
+    </div>
+    <div class="form-row-2">
+      <div><label>Plan</label>
+        <select id="edit-user-plan">
+          <option value="free_trial">Free Trial</option>
+          <option value="basic">Basic</option>
+          <option value="pro">Pro</option>
+          <option value="premium">Premium</option>
+          <option value="special">Special — Admin Only</option>
+        </select>
+      </div>
+      <div><label>Billing Cycle</label>
+        <select id="edit-user-cycle">
+          <option value="monthly">Monthly</option>
+          <option value="yearly">Yearly</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <label>Account Status</label>
+      <select id="edit-user-status">
+        <option value="active">Active</option>
+        <option value="suspended">Suspended</option>
+        <option value="cancelled">Cancelled</option>
+        <option value="past_due">Past Due</option>
+      </select>
+    </div>
+    <div class="form-actions">
+      <button class="btn" onclick="closeAdminModal('modal-edit-user')">Cancel</button>
+      <button class="btn btn-primary" id="edit-user-submit-btn" onclick="saveEditUser()">
+        <i class="fa-solid fa-floppy-disk"></i> Save Changes
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Register User Modal -->
+<div class="overlay" id="modal-register">
+  <div class="modal">
+    <div class="modal-title">
+      <span><i class="fa-solid fa-user-plus" style="margin-right:8px;color:var(--accent-hover)"></i>Register New User</span>
+      <button class="modal-close" onclick="closeAdminModal('modal-register')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div id="reg-error" style="display:none;background:var(--danger-dim);border:1px solid var(--danger);color:var(--danger);border-radius:8px;padding:8px 12px;font-size:12.5px;margin-bottom:14px"></div>
+    <div class="form-row">
+      <label>Full Name <span style="color:var(--danger)">*</span></label>
+      <input type="text" id="reg-name" placeholder="John Doe">
+    </div>
+    <div class="form-row">
+      <label>Email Address <span style="color:var(--danger)">*</span></label>
+      <input type="email" id="reg-email" placeholder="user@example.com">
+    </div>
+    <div class="form-row">
+      <label>Password <span style="color:var(--danger)">*</span></label>
+      <div style="position:relative">
+        <input type="password" id="reg-password" placeholder="Min 8 characters">
+        <button class="pwd-toggle-btn" type="button" onclick="togglePwdVisibility('reg-password', this)" title="Show/hide password">
+          <i class="fa-solid fa-eye" id="reg-password-eye"></i>
+        </button>
+      </div>
+    </div>
+    <div class="form-row">
+      <label>Company / Business Name</label>
+      <input type="text" id="reg-company" placeholder="Optional">
+    </div>
+    <div class="form-row">
+      <label>Assign Plan</label>
+      <select id="reg-plan">
+        <option value="free_trial">Free Trial (14 days)</option>
+        <option value="basic">Basic — $19.99/mo</option>
+        <option value="pro">Pro — $49.99/mo</option>
+        <option value="premium">Premium — $99.99/mo</option>
+        <option value="special">Special — Admin Only</option>
+      </select>
+    </div>
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:16px">
+      <i class="fa-solid fa-circle-info"></i>
+      The user will receive a confirmation email from Supabase. They can then log in to PropMS with the credentials you set.
+    </div>
+    <div class="form-row">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+        <input type="checkbox" id="reg-is-admin" style="width:auto;padding:0">
+        <span><i class="fa-solid fa-shield-halved" style="color:var(--accent-hover)"></i> Grant admin privileges</span>
+        <span style="font-size:11px;color:var(--text-muted);font-weight:400;margin-left:4px">(user will be added to admin_users)</span>
+      </label>
+    </div>
+    <div class="form-actions">
+      <button class="btn" onclick="closeAdminModal('modal-register')">Cancel</button>
+      <button class="btn btn-primary" id="reg-submit-btn" onclick="registerUser()">
+        <i class="fa-solid fa-user-plus"></i> Create Account
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete User Modal -->
+<div class="overlay" id="modal-delete">
+  <div class="modal">
+    <div class="modal-title">
+      <span style="color:var(--danger)"><i class="fa-solid fa-trash" style="margin-right:8px"></i>Delete User</span>
+      <button class="modal-close" onclick="closeAdminModal('modal-delete')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <input type="hidden" id="delete-user-id">
+    <div style="margin-bottom:14px">
+      <div style="font-size:13px;color:var(--text-secondary)">You are about to permanently delete:</div>
+      <div id="delete-user-name" style="font-weight:600;font-size:15px;margin-top:4px"></div>
+    </div>
+    <div class="form-row">
+      <label>Reason <span style="color:var(--text-muted)">(optional)</span></label>
+      <select id="delete-reason-preset" onchange="setDeleteReason(this.value)">
+        <option value="">— Select reason —</option>
+        <option value="Account requested deletion">User requested deletion</option>
+        <option value="Duplicate account">Duplicate account</option>
+        <option value="Violation of terms">Violation of terms</option>
+        <option value="Inactive / abandoned">Inactive / abandoned</option>
+        <option value="custom">Custom reason…</option>
+      </select>
+    </div>
+    <div class="form-row" id="delete-custom-row" style="display:none">
+      <label>Custom Reason</label>
+      <textarea id="delete-reason" style="min-height:60px" placeholder="Describe the reason for deletion…"></textarea>
+    </div>
+    <div style="background:var(--danger-dim);border:1px solid var(--danger);border-radius:8px;padding:10px 14px;font-size:12.5px;color:var(--danger);margin-bottom:16px">
+      <i class="fa-solid fa-triangle-exclamation" style="margin-right:6px"></i>
+      This action <strong>cannot be undone</strong>. The user's profile, subscription history, and auth account will be permanently removed.
+    </div>
+    <div class="form-actions">
+      <button class="btn" onclick="closeAdminModal('modal-delete')">Cancel</button>
+      <button class="btn btn-danger" id="confirm-delete-btn" onclick="confirmDeleteUser()">
+        <i class="fa-solid fa-trash"></i> Delete Permanently
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Reset Password Modal -->
+<div class="overlay" id="modal-reset-password">
+  <div class="modal">
+    <div class="modal-title">
+      <span><i class="fa-solid fa-key" style="margin-right:8px;color:var(--warning)"></i>Reset Password</span>
+      <button class="modal-close" onclick="closeAdminModal('modal-reset-password')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <input type="hidden" id="reset-user-id">
+    <div style="margin-bottom:14px">
+      <div style="font-size:13px;color:var(--text-secondary)">You are about to reset the password for:</div>
+      <div id="reset-user-name" style="font-weight:600;font-size:15px;margin-top:4px"></div>
+    </div>
+    <div class="form-row">
+      <label>New Temporary Password <span style="color:var(--danger)">*</span></label>
+      <div style="position:relative">
+        <input type="password" id="reset-password" placeholder="Min 8 characters">
+        <button class="pwd-toggle-btn" type="button" onclick="togglePwdVisibility('reset-password', this)" title="Show/hide password">
+          <i class="fa-solid fa-eye" id="reset-password-eye"></i>
+        </button>
+      </div>
+    </div>
+    <div class="form-row">
+      <label>Confirm Password</label>
+      <div style="position:relative">
+        <input type="password" id="reset-password-confirm" placeholder="Re-enter the new password">
+        <button class="pwd-toggle-btn" type="button" onclick="togglePwdVisibility('reset-password-confirm', this)" title="Show/hide password">
+          <i class="fa-solid fa-eye" id="reset-password-confirm-eye"></i>
+        </button>
+      </div>
+    </div>
+    <div id="reset-error" style="display:none;background:var(--danger-dim);border:1px solid var(--danger);color:var(--danger);border-radius:8px;padding:8px 12px;font-size:12.5px;margin-bottom:14px"></div>
+    <div style="background:var(--warning-dim);border:1px solid var(--warning);border-radius:8px;padding:10px 14px;font-size:12.5px;color:var(--warning);margin-bottom:16px">
+      <i class="fa-solid fa-triangle-exclamation" style="margin-right:6px"></i>
+      The user will be forced to change their password on next login (if you enable that) or they can use the new password immediately.
+    </div>
+    <div class="form-actions">
+      <button class="btn" onclick="closeAdminModal('modal-reset-password')">Cancel</button>
+      <button class="btn btn-warning" id="reset-submit-btn" onclick="confirmResetPassword()">
+        <i class="fa-solid fa-key"></i> Reset Password
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Logout Confirm Modal -->
+<div class="overlay" id="modal-admin-logout">
+  <div class="modal" style="width:380px">
+    <div class="modal-title">
+      Log Out
+      <button class="modal-close" onclick="closeAdminModal('modal-admin-logout')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <p style="color:var(--text-secondary);font-size:14px;margin-bottom:8px">Are you sure you want to log out of the Admin Panel?</p>
+    <p style="color:var(--text-muted);font-size:12px">You will need to sign in again to access this area.</p>
+    <div class="form-actions">
+      <button class="btn" onclick="closeAdminModal('modal-admin-logout')">Cancel</button>
+      <button class="btn btn-danger" onclick="confirmAdminLogout()"><i class="fa-solid fa-right-from-bracket"></i> Log Out</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm Modal (for generic confirmations) -->
+<div class="overlay" id="modal-confirm">
+  <div class="modal" style="width:380px">
+    <div class="modal-title">
+      <span id="confirm-modal-title">Confirm</span>
+      <button class="modal-close" onclick="closeAdminModal('modal-confirm')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <p id="confirm-modal-body" style="color:var(--text-secondary);font-size:14px;margin-bottom:8px;line-height:1.6"></p>
+    <div class="form-actions">
+      <button class="btn" onclick="closeAdminModal('modal-confirm')">Cancel</button>
+      <button class="btn btn-danger" id="confirm-modal-ok" onclick="confirmModalOk()"><i class="fa-solid fa-trash"></i> Delete</button>
+    </div>
+  </div>
+</div>
+
+<script src="admin.js"></script>
+</body>
+</html>

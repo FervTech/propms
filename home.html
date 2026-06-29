@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PropMS — Property Management</title>
+
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+
+  <!-- jsPDF for receipt download -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+  <!-- App styles -->
+  <link rel="stylesheet" href="css/style.css">
+
+  <!-- Config (must come before app.js) -->
+  <script src="config.js"></script>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════
+     SIDEBAR
+══════════════════════════════════════════ -->
+<aside id="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-img-wrap" id="sidebar-logo-icon">
+      <!-- filled by JS based on uploaded logo -->
+      <i class="fa-solid fa-building logo-icon-fallback"></i>
+    </div>
+    <div class="logo-text">Prop<span>MS</span></div>
+  </div>
+
+  <nav>
+    <div class="nav-section-label">Overview</div>
+    <a class="nav-item active" data-page="dashboard" onclick="navigate('dashboard')">
+      <i class="fa-solid fa-chart-pie icon"></i> Dashboard
+    </a>
+
+    <div class="nav-section-label">Management</div>
+    <a class="nav-item" data-page="properties" onclick="navigate('properties')">
+      <i class="fa-solid fa-city icon"></i> Properties
+      <span class="nav-badge" id="nb-props">0</span>
+    </a>
+    <a class="nav-item" data-page="tenants" onclick="navigate('tenants')">
+      <i class="fa-solid fa-users icon"></i> Tenants
+      <span class="nav-badge" id="nb-tenants">0</span>
+    </a>
+    <a class="nav-item" data-page="payments" onclick="navigate('payments')">
+      <i class="fa-solid fa-money-bill-wave icon"></i> Payments
+    </a>
+
+    <div class="nav-section-label">Insights</div>
+    <a class="nav-item" data-page="reports" onclick="navigate('reports')">
+      <i class="fa-solid fa-chart-line icon"></i> Reports &amp; Analysis
+    </a>
+
+    <div class="nav-section-label">System</div>
+    <a class="nav-item" data-page="settings" onclick="navigate('settings')">
+      <i class="fa-solid fa-gear icon"></i> Settings
+    </a>
+  </nav>
+
+  <div class="sidebar-footer">
+    <!-- Profile popup -->
+    <div class="profile-popup" id="profile-popup">
+      <div class="profile-popup-item" onclick="navigate('settings');closeProfilePopup()">
+        <i class="fa-solid fa-gear"></i> Settings
+      </div>
+      <div class="profile-popup-divider"></div>
+      <div class="profile-popup-item danger" onclick="handleLogout()">
+        <i class="fa-solid fa-right-from-bracket"></i> Log Out
+      </div>
+    </div>
+
+    <div class="user-pill" onclick="toggleProfilePopup()">
+      <div class="avatar" id="user-avatar">
+        <span>PM</span>
+      </div>
+      <div class="user-info">
+        <div class="user-name">Property Manager</div>
+        <div class="user-role">Admin</div>
+      </div>
+      <i class="fa-solid fa-chevron-up" style="font-size:10px;color:var(--text-muted)"></i>
+    </div>
+  </div>
+</aside>
+
+
+<!-- ══════════════════════════════════════════
+     MAIN
+══════════════════════════════════════════ -->
+<div id="main">
+
+  <!-- Demo mode banner -->
+  <div id="config-banner" style="display:none">
+    <i class="fa-solid fa-triangle-exclamation"></i>
+    Running in demo mode. Add your Supabase credentials in <strong>config.js</strong> to connect a real database.
+  </div>
+
+  <!-- Top bar -->
+  <header id="topbar">
+    <div class="page-title" id="topbar-title">Dashboard</div>
+    <div id="topbar-actions"></div>
+  </header>
+
+  <!-- Page content -->
+  <div id="content">
+
+    <!-- ─── DASHBOARD ─── -->
+    <div class="page active" id="page-dashboard">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">Total Properties</div>
+          <div class="stat-value" id="s-props">—</div>
+          <div class="stat-sub">across all units</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Active Tenants</div>
+          <div class="stat-value" id="s-tenants">—</div>
+          <div class="stat-sub">current leases</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Monthly Revenue</div>
+          <div class="stat-value" id="s-revenue">—</div>
+          <div class="stat-sub" id="s-rev-sub">collected this month</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Occupancy Rate</div>
+          <div class="stat-value" id="s-occ">—</div>
+          <div class="stat-sub">of total units</div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">Occupancy Overview</div>
+          <div class="occ-ring-wrap">
+            <div style="position:relative;width:120px;height:120px;flex-shrink:0;">
+              <svg width="120" height="120" viewBox="0 0 120 120">
+                <circle cx="60" cy="60" r="50" fill="none" stroke="var(--bg-elevated)" stroke-width="10"/>
+                <circle cx="60" cy="60" r="50" fill="none" stroke="var(--accent)" stroke-width="10"
+                        stroke-linecap="round" stroke-dasharray="314" stroke-dashoffset="314"
+                        transform="rotate(-90 60 60)" id="occ-ring"
+                        style="transition:stroke-dashoffset 1s ease;"/>
+              </svg>
+              <div class="ring-label">
+                <div class="ring-pct" id="occ-ring-pct">0%</div>
+                <div class="ring-sub">occupied</div>
+              </div>
+            </div>
+            <div class="ring-legend">
+              <div class="legend-item"><div class="legend-dot" style="background:var(--success)"></div><span id="leg-occupied">— occupied</span></div>
+              <div class="legend-item"><div class="legend-dot" style="background:var(--warning)"></div><span id="leg-vacant">— vacant</span></div>
+              <div class="legend-item"><div class="legend-dot" style="background:var(--danger)"></div><span id="leg-maintenance">— maintenance</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Recent Activity</div>
+          <div id="activity-feed"><div class="loading"><div class="spinner"></div> Loading…</div></div>
+        </div>
+      </div>
+
+      <div style="margin-top:16px">
+        <div class="card">
+          <div class="card-title">
+            Upcoming Lease Renewals <span id="due-count"></span>
+          </div>
+          <div id="upcoming-rent"><div class="loading"><div class="spinner"></div></div></div>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ─── PROPERTIES ─── -->
+    <div class="page" id="page-properties">
+      <div class="filter-bar">
+        <div class="search-wrap">
+          <i class="fa-solid fa-magnifying-glass search-icon"></i>
+          <input type="text" placeholder="Search properties…" id="prop-search" oninput="filterProperties()">
+        </div>
+        <select class="filter-select" id="prop-status-filter" onchange="filterProperties()">
+          <option value="">All statuses</option>
+          <option value="occupied">Occupied</option>
+          <option value="vacant">Vacant</option>
+          <option value="maintenance">Maintenance</option>
+        </select>
+        <select class="filter-select" id="prop-type-filter" onchange="filterProperties()">
+          <option value="">All types</option>
+          <option value="apartment">Apartment</option>
+          <option value="store">Store</option>
+          <option value="house">House</option>
+          <option value="condo">Condo</option>
+          <option value="commercial">Commercial</option>
+        </select>
+      </div>
+      <div class="properties-grid" id="properties-grid">
+        <div class="loading"><div class="spinner"></div></div>
+      </div>
+    </div>
+
+
+    <!-- ─── TENANTS ─── -->
+    <div class="page" id="page-tenants">
+      <div class="filter-bar">
+        <div class="search-wrap">
+          <i class="fa-solid fa-magnifying-glass search-icon"></i>
+          <input type="text" placeholder="Search tenants…" id="tenant-search" oninput="filterTenants()">
+        </div>
+        <select class="filter-select" id="tenant-status-filter" onchange="filterTenants()">
+          <option value="">All statuses</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
+      </div>
+      <div class="card" style="padding:0">
+        <div class="table-wrap">
+          <table id="tenants-table">
+            <thead>
+            <tr>
+              <th>Tenant</th>
+              <th>Property</th>
+              <th>Unit</th>
+              <th>Lease End</th>
+              <th>Rent</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+            </thead>
+            <tbody id="tenants-tbody">
+            <tr><td colspan="7"><div class="loading"><div class="spinner"></div></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ─── PAYMENTS ─── -->
+    <div class="page" id="page-payments">
+      <div class="filter-bar">
+        <div class="search-wrap">
+          <i class="fa-solid fa-magnifying-glass search-icon"></i>
+          <input type="text" placeholder="Search by tenant or amount…" id="pay-search" oninput="filterPayments()">
+        </div>
+        <select class="filter-select" id="pay-status-filter" onchange="filterPayments()">
+          <option value="">All statuses</option>
+          <option value="paid">Paid</option>
+          <option value="pending">Pending</option>
+          <option value="overdue">Overdue</option>
+        </select>
+        <select class="filter-select" id="pay-type-filter" onchange="filterPayments()">
+          <option value="">All types</option>
+          <option value="rent">Rent</option>
+          <option value="deposit">Deposit</option>
+          <option value="late_fee">Late Fee</option>
+          <option value="maintenance">Maintenance</option>
+          <option value="other">Other</option>
+        </select>
+        <select class="filter-select" id="pay-month-filter" onchange="filterPayments()">
+          <option value="">All months</option>
+        </select>
+        <input type="number" placeholder="Min amount" id="pay-amount-min" oninput="filterPayments()"
+               style="width:110px;min-width:0" title="Minimum amount">
+        <input type="number" placeholder="Max amount" id="pay-amount-max" oninput="filterPayments()"
+               style="width:110px;min-width:0" title="Maximum amount">
+      </div>
+      <div class="card" style="padding:0">
+        <div class="table-wrap">
+          <table>
+            <thead>
+            <tr>
+              <th>Date</th>
+              <th>Tenant</th>
+              <th>Property</th>
+              <th>Amount</th>
+              <th>Type</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+            </thead>
+            <tbody id="payments-tbody">
+            <tr><td colspan="7"><div class="loading"><div class="spinner"></div></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ─── REPORTS ─── -->
+    <div class="page" id="page-reports">
+      <div class="report-period-tabs">
+        <button class="period-tab active" onclick="setReportPeriod('daily',this)">Daily</button>
+        <button class="period-tab" onclick="setReportPeriod('weekly',this)">Weekly</button>
+        <button class="period-tab" onclick="setReportPeriod('monthly',this)">Monthly</button>
+        <button class="period-tab" onclick="setReportPeriod('yearly',this)">Yearly</button>
+      </div>
+
+      <div class="report-metric-grid" id="report-metrics"></div>
+
+      <div class="grid-2" style="margin-bottom:20px">
+        <div class="card">
+          <div class="card-title">
+            Revenue Trend <span id="report-period-label">This Month</span>
+          </div>
+          <div id="revenue-chart" style="padding:8px 0"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Payment Status Breakdown</div>
+          <div id="payment-breakdown"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">
+          <span><i class="fa-solid fa-download" style="margin-right:6px"></i>Export Data</span>
+          <span style="color:var(--text-muted);font-size:11px">CSV / JSON download</span>
+        </div>
+        <div style="margin-bottom:12px;font-size:13px;color:var(--text-secondary)">
+          Select a time range to export payment records:
+        </div>
+        <div class="export-range-btns" id="export-range-btns">
+          <button class="range-btn active" data-range="1d"     onclick="setExportRange('1d',this)">Last 24h</button>
+          <button class="range-btn"        data-range="7d"     onclick="setExportRange('7d',this)">Last 7 days</button>
+          <button class="range-btn"        data-range="1m"     onclick="setExportRange('1m',this)">1 Month</button>
+          <button class="range-btn"        data-range="3m"     onclick="setExportRange('3m',this)">3 Months</button>
+          <button class="range-btn"        data-range="6m"     onclick="setExportRange('6m',this)">6 Months</button>
+          <button class="range-btn"        data-range="1y"     onclick="setExportRange('1y',this)">1 Year</button>
+          <button class="range-btn"        data-range="custom" onclick="setExportRange('custom',this)">Custom Range</button>
+        </div>
+        <div id="custom-range-inputs" style="display:none;margin-bottom:14px">
+          <div class="form-row-2" style="margin-bottom:0">
+            <div><label>From</label><input type="date" id="export-from"></div>
+            <div><label>To</label><input type="date" id="export-to"></div>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <button class="btn btn-primary" onclick="exportCSV()">
+            <i class="fa-solid fa-file-csv"></i> Export CSV
+          </button>
+          <button class="btn" onclick="exportJSON()">
+            <i class="fa-solid fa-file-code"></i> Export JSON
+          </button>
+          <span id="export-count" style="font-size:12px;color:var(--text-muted)"></span>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ─── SETTINGS ─── -->
+    <div class="page" id="page-settings">
+      <div style="max-width:640px">
+
+        <!-- Appearance -->
+        <div class="settings-section">
+          <div class="settings-section-title">Appearance</div>
+          <div class="settings-row">
+            <div class="settings-row-info">
+              <div class="settings-row-label">Light Mode</div>
+              <div class="settings-row-sub">Switch between dark and light theme</div>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="toggle-light" onchange="toggleLightMode(this)">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Company Logo -->
+        <div class="settings-section">
+          <div class="settings-section-title">Company Logo</div>
+          <div class="logo-preview-wrap" id="settings-logo-preview">
+            <!-- filled by JS -->
+          </div>
+          <div class="logo-upload-area">
+            <input type="file" accept="image/*" onchange="handleLogoUpload(this)">
+            <i class="fa-solid fa-cloud-arrow-up" style="font-size:24px;color:var(--text-muted);margin-bottom:8px"></i>
+            <div style="font-size:13px;color:var(--text-secondary);margin-bottom:4px">Click to upload your logo</div>
+            <div style="font-size:11px;color:var(--text-muted)">PNG, JPG, SVG — max 2 MB. Appears on receipts, sidebar &amp; profile.</div>
+          </div>
+          <div style="margin-top:10px">
+            <button class="btn btn-sm btn-danger" onclick="removeLogo()">
+              <i class="fa-solid fa-trash"></i> Remove Logo
+            </button>
+          </div>
+        </div>
+
+        <!-- Regional -->
+        <div class="settings-section">
+          <div class="settings-section-title">Regional</div>
+          <div class="settings-row">
+            <div class="settings-row-info">
+              <div class="settings-row-label">Currency</div>
+              <div class="settings-row-sub">Used for display across the app</div>
+            </div>
+            <select id="settings-currency" style="width:160px" onchange="saveSetting('currency',this.value)">
+              <option value="USD">$ USD</option>
+              <option value="GHS">₵ GHS (Cedi)</option>
+              <option value="EUR">€ EUR</option>
+              <option value="GBP">£ GBP</option>
+              <option value="NGN">₦ NGN (Naira)</option>
+              <option value="KES">KSh KES</option>
+              <option value="ZAR">R ZAR</option>
+            </select>
+          </div>
+          <div class="settings-row">
+            <div class="settings-row-info">
+              <div class="settings-row-label">Date Format</div>
+              <div class="settings-row-sub">How dates are displayed</div>
+            </div>
+            <select id="settings-dateformat" style="width:160px" onchange="saveSetting('dateformat',this.value)">
+              <option value="MDY">MM/DD/YYYY</option>
+              <option value="DMY">DD/MM/YYYY</option>
+              <option value="YMD">YYYY-MM-DD</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Notifications -->
+        <div class="settings-section">
+          <div class="settings-section-title">Notifications</div>
+          <div class="settings-row">
+            <div class="settings-row-info">
+              <div class="settings-row-label">Lease Expiry Alerts</div>
+              <div class="settings-row-sub">Remind when leases expire within 60 days</div>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="toggle-lease-alerts" checked onchange="saveSetting('leaseAlerts',this.checked)">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="settings-row">
+            <div class="settings-row-info">
+              <div class="settings-row-label">Overdue Payment Alerts</div>
+              <div class="settings-row-sub">Highlight overdue payments on dashboard</div>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="toggle-overdue-alerts" checked onchange="saveSetting('overdueAlerts',this.checked)">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Security -->
+        <div class="settings-section">
+          <div class="settings-section-title">Security</div>
+          <div class="settings-row">
+            <div class="settings-row-info">
+              <div class="settings-row-label">Change Password</div>
+              <div class="settings-row-sub">Update your account password</div>
+            </div>
+            <button class="btn btn-sm" onclick="openModal('modal-change-password')">
+              <i class="fa-solid fa-key"></i> Change
+            </button>
+          </div>
+          <div class="settings-row">
+            <div class="settings-row-info">
+              <div class="settings-row-label">Two-Factor Authentication</div>
+              <div class="settings-row-sub">Add an extra layer of security</div>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="toggle-2fa" onchange="saveSetting('2fa',this.checked)">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Plan -->
+        <div class="settings-section">
+          <div class="settings-section-title">Plan</div>
+          <div class="card" style="padding:16px 20px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+              <div>
+                <div style="font-size:15px;font-weight:600">Free Plan</div>
+                <div style="font-size:12px;color:var(--text-muted);margin-top:2px">Up to 10 properties · 50 tenants</div>
+              </div>
+              <span class="badge badge-info">Current</span>
+            </div>
+            <button class="btn btn-primary btn-sm">
+              <i class="fa-solid fa-star"></i> Upgrade to Pro
+            </button>
+          </div>
+        </div>
+
+        <!-- Company Info -->
+        <div class="settings-section">
+          <div class="settings-section-title">Company Info</div>
+          <div class="form-row">
+            <label>Company / Business Name</label>
+            <input type="text" id="settings-company" placeholder="Your Property Business Name" oninput="saveSetting('companyName',this.value)">
+          </div>
+          <div class="form-row">
+            <label>Business Address</label>
+            <input type="text" id="settings-address" placeholder="123 Business St, City">
+          </div>
+          <div class="form-row">
+            <label>Contact Email</label>
+            <input type="email" id="settings-email" placeholder="contact@yourbusiness.com">
+          </div>
+          <div class="form-row">
+            <label>Contact Phone</label>
+            <input type="tel" id="settings-phone" placeholder="+1 555 000 0000">
+          </div>
+          <button class="btn btn-primary" onclick="saveCompanySettings()">
+            <i class="fa-solid fa-floppy-disk"></i> Save Company Info
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+  </div><!-- /#content -->
+</div><!-- /#main -->
+
+
+<!-- ══════════════════════════════════════════
+     TOAST CONTAINER
+══════════════════════════════════════════ -->
+<div id="toast-container"></div>
+
+
+<!-- ══════════════════════════════════════════
+     MODALS
+══════════════════════════════════════════ -->
+
+<!-- Add / Edit Property -->
+<div class="overlay" id="modal-property">
+  <div class="modal">
+    <div class="modal-title">
+      <span id="prop-modal-title">Add Property</span>
+      <button class="modal-close" onclick="closeModal('modal-property')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <input type="hidden" id="prop-id">
+    <div class="form-row">
+      <label>Property Name</label>
+      <input type="text" id="prop-name" placeholder="e.g. Sunset Apartments Block A">
+    </div>
+    <div class="form-row-2">
+      <div>
+        <label>Type</label>
+        <select id="prop-type">
+          <option value="apartment">Apartment</option>
+          <option value="store">Store</option>
+          <option value="house">House</option>
+          <option value="condo">Condo</option>
+          <option value="commercial">Commercial</option>
+        </select>
+      </div>
+      <div>
+        <label>Status</label>
+        <select id="prop-status">
+          <option value="vacant">Vacant</option>
+          <option value="occupied">Occupied</option>
+          <option value="maintenance">Maintenance</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <label>Address</label>
+      <input type="text" id="prop-addr" placeholder="123 Main St, City, State">
+    </div>
+    <div class="form-row-2">
+      <div><label>Bedrooms</label><input type="number" id="prop-beds" placeholder="2" min="0"></div>
+      <div><label>Bathrooms</label><input type="number" id="prop-baths" placeholder="1" min="0" step="0.5"></div>
+    </div>
+    <div class="form-row-2">
+      <div><label>Monthly Rent</label><input type="number" id="prop-rent" placeholder="1500" min="0"></div>
+      <div><label>Size (sq ft)</label><input type="number" id="prop-size" placeholder="850" min="0"></div>
+    </div>
+    <div class="form-row">
+      <label>Notes</label>
+      <textarea id="prop-notes" placeholder="Any additional notes…"></textarea>
+    </div>
+    <div class="form-actions">
+      <button class="btn" onclick="closeModal('modal-property')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveProperty()">
+        <i class="fa-solid fa-floppy-disk"></i> Save Property
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Add / Edit Tenant -->
+<div class="overlay" id="modal-tenant">
+  <div class="modal">
+    <div class="modal-title">
+      <span id="tenant-modal-title">Add Tenant</span>
+      <button class="modal-close" onclick="closeModal('modal-tenant')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <input type="hidden" id="tenant-id">
+    <div class="form-row-2">
+      <div><label>First Name</label><input type="text" id="tenant-first" placeholder="John"></div>
+      <div><label>Last Name</label><input type="text" id="tenant-last" placeholder="Doe"></div>
+    </div>
+    <div class="form-row-2">
+      <div><label>Email</label><input type="email" id="tenant-email" placeholder="john@email.com"></div>
+      <div><label>Phone</label><input type="tel" id="tenant-phone" placeholder="+1 555 000 0000"></div>
+    </div>
+    <div class="form-row">
+      <label>Property</label>
+      <select id="tenant-property"><option value="">— Select property —</option></select>
+    </div>
+    <div class="form-row">
+      <label>Unit / Room</label>
+      <input type="text" id="tenant-unit" placeholder="Unit 4B">
+    </div>
+    <div class="form-row-2">
+      <div><label>Lease Start</label><input type="date" id="tenant-lease-start"></div>
+      <div><label>Lease End</label><input type="date" id="tenant-lease-end"></div>
+    </div>
+    <div class="form-row-2">
+      <div><label>Monthly Rent</label><input type="number" id="tenant-rent" placeholder="1500"></div>
+      <div>
+        <label>Status</label>
+        <select id="tenant-status">
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn" onclick="closeModal('modal-tenant')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveTenant()">
+        <i class="fa-solid fa-floppy-disk"></i> Save Tenant
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Tenant Detail View -->
+<div class="overlay" id="modal-tenant-detail">
+  <div class="modal modal-wide">
+    <div class="modal-title">
+      <span><i class="fa-solid fa-user" style="margin-right:8px;color:var(--accent-hover)"></i>Tenant Details</span>
+      <button class="modal-close" onclick="closeModal('modal-tenant-detail')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div id="tenant-detail-content"></div>
+    <div class="form-actions">
+      <button class="btn" onclick="closeModal('modal-tenant-detail')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add / Edit Payment -->
+<div class="overlay" id="modal-payment">
+  <div class="modal">
+    <div class="modal-title">
+      <span id="pay-modal-title">Record Payment</span>
+      <button class="modal-close" onclick="closeModal('modal-payment')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <input type="hidden" id="pay-id">
+    <div class="form-row">
+      <label>Tenant</label>
+      <select id="pay-tenant"><option value="">— Select tenant —</option></select>
+    </div>
+    <div class="form-row-2">
+      <div><label>Amount</label><input type="number" id="pay-amount" placeholder="1500"></div>
+      <div><label>Date</label><input type="date" id="pay-date"></div>
+    </div>
+    <div class="form-row-2">
+      <div>
+        <label>Type</label>
+        <select id="pay-type">
+          <option value="rent">Rent</option>
+          <option value="deposit">Security Deposit</option>
+          <option value="late_fee">Late Fee</option>
+          <option value="maintenance">Maintenance</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div>
+        <label>Status</label>
+        <select id="pay-status">
+          <option value="paid">Paid</option>
+          <option value="pending">Pending</option>
+          <option value="overdue">Overdue</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <label>Notes</label>
+      <textarea id="pay-notes" placeholder="Payment notes…" style="min-height:60px"></textarea>
+    </div>
+    <div class="form-actions">
+      <button class="btn" onclick="closeModal('modal-payment')">Cancel</button>
+      <button class="btn btn-primary" onclick="savePayment()">
+        <i class="fa-solid fa-floppy-disk"></i> Save Payment
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Payment Detail View -->
+<div class="overlay" id="modal-payment-detail">
+  <div class="modal modal-wide">
+    <div class="modal-title">
+      <span><i class="fa-solid fa-receipt" style="margin-right:8px;color:var(--accent-hover)"></i>Payment Details</span>
+      <button class="modal-close" onclick="closeModal('modal-payment-detail')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div id="payment-detail-content"></div>
+    <div class="form-actions">
+      <button class="btn" onclick="closeModal('modal-payment-detail')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Receipt / Invoice -->
+<div class="overlay" id="modal-receipt">
+  <div class="modal modal-wide">
+    <div class="modal-title">
+      <span id="receipt-modal-title">Payment Receipt</span>
+      <button class="modal-close" onclick="closeModal('modal-receipt')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div id="receipt-preview-wrap"></div>
+    <div class="form-actions">
+      <button class="btn" onclick="closeModal('modal-receipt')">Close</button>
+      <button class="btn btn-success" onclick="downloadReceiptPDF()">
+        <i class="fa-solid fa-file-pdf"></i> Download PDF
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Change Password -->
+<div class="overlay" id="modal-change-password">
+  <div class="modal">
+    <div class="modal-title">
+      Change Password
+      <button class="modal-close" onclick="closeModal('modal-change-password')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="form-row"><label>Current Password</label><input type="password" id="pwd-current" placeholder="••••••••"></div>
+    <div class="form-row"><label>New Password</label><input type="password" id="pwd-new" placeholder="••••••••"></div>
+    <div class="form-row"><label>Confirm New Password</label><input type="password" id="pwd-confirm" placeholder="••••••••"></div>
+    <div class="form-actions">
+      <button class="btn" onclick="closeModal('modal-change-password')">Cancel</button>
+      <button class="btn btn-primary" onclick="changePassword()">
+        <i class="fa-solid fa-lock"></i> Update Password
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Logout Confirm -->
+<div class="overlay" id="modal-logout">
+  <div class="modal" style="width:380px">
+    <div class="modal-title">
+      Log Out
+      <button class="modal-close" onclick="closeModal('modal-logout')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <p style="color:var(--text-secondary);font-size:14px;margin-bottom:8px">
+      Are you sure you want to log out of PropMS?
+    </p>
+    <p style="color:var(--text-muted);font-size:12px">
+      Your demo data is saved locally and will be here when you return.
+    </p>
+    <div class="form-actions">
+      <button class="btn" onclick="closeModal('modal-logout')">Cancel</button>
+      <button class="btn btn-danger" onclick="confirmLogout()">
+        <i class="fa-solid fa-right-from-bracket"></i> Log Out
+      </button>
+    </div>
+  </div>
+</div>
+
+
+<!-- App logic (must come last) -->
+<script src="app.js"></script>
+
+</body>
+</html>
