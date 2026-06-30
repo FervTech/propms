@@ -11,7 +11,7 @@ const env = window.__ENV || {};
 window.ENV = {
   SUPABASE_URL:         env.SUPABASE_URL         || '',
   SUPABASE_ANON_KEY:    env.SUPABASE_ANON_KEY    || '',
-  SUPABASE_SERVICE_KEY: env.SUPABASE_SERVICE_KEY || '',
+  SUPABASE_SERVICE_KEY: env.SUPAB.ASE_SERVICE_KEY || '',
   APP_NAME:             env.APP_NAME             || 'PropMS',
   APP_VERSION:          env.APP_VERSION          || '2.0.0',
 
