@@ -3684,7 +3684,7 @@ function appInit() {
   });
 }
 
-// ── AUTO-SUSPEND ON PLAN EXPIRY ───────────────
+
 // ── AUTO-SUSPEND ON PLAN EXPIRY ───────────────
 // Called every boot. Checks BOTH trial_ends_at (free trial) and
 // subscription_ends_at (paid plans). Suspends + signs out if expired.
