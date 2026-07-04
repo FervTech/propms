@@ -1,0 +1,5 @@
+{
+  "buildCommand": "node build-env.js",
+  "outputDirectory": ".",
+  "installCommand": "echo 'no install needed'"
+}

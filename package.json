@@ -1,6 +1,6 @@
 {
-  "name": " ",
-  "version": "0.0.1",
+  "name": "propms",
+  "version": "2.0.0",
   "description": "",
   "private": true,
   "keywords": [
@@ -11,7 +11,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "webpack serve --open --config webpack.config.dev.js",
-    "build": "webpack --config webpack.config.prod.js"
+    "build": "node build-env.js"
   },
   "devDependencies": {
     "copy-webpack-plugin": "^14.0.0",
