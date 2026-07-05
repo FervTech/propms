@@ -725,6 +725,51 @@ async function loadAll() {
   if (d.data)   documents          = d.data;
   processRecurringSchedules();
   updateNavBadges();
+  await checkExpiredLeases();
+}
+
+// ── AUTO-EXPIRE LEASES ────────────────────────
+// Runs on every loadAll(). Tenants whose lease_end has passed are marked
+// inactive; their linked property is set to vacant.
+async function checkExpiredLeases() {
+  if (!currentUser) return;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const expired = tenants.filter(t =>
+    t.status === 'active' &&
+    t.lease_end &&
+    new Date(t.lease_end) < today
+  );
+
+  if (!expired.length) return;
+
+  for (const t of expired) {
+    // Mark tenant inactive
+    const { error: tErr } = await sb.update('tenants', t.id, { status: 'inactive' });
+    if (!tErr) {
+      t.status = 'inactive'; // update local state immediately
+    }
+
+    // Mark their property vacant (only if no other active tenants remain on it)
+    if (t.property_id) {
+      const stillActive = tenants.filter(
+        other => other.id !== t.id &&
+          other.property_id == t.property_id &&
+          other.status === 'active'
+      );
+      if (!stillActive.length) {
+        const { error: pErr } = await sb.update('properties', t.property_id, { status: 'vacant' });
+        if (!pErr) {
+          const prop = properties.find(p => p.id == t.property_id);
+          if (prop) prop.status = 'vacant';
+        }
+      }
+    }
+  }
+
+  // Refresh badges after changes
+  updateNavBadges();
 }
 
 function updateNavBadges() {
@@ -2196,6 +2241,22 @@ function buildNotifications() {
         icon: 'fa-calendar-xmark', color: days < 14 ? 'var(--danger)' : 'var(--warning)',
         title: 'Lease Expiring Soon',
         body:  t.first_name + ' ' + t.last_name + ' — ' + days + ' days left',
+        time:  fmtDate(t.lease_end)
+      });
+    });
+
+    // Expired leases — tenants whose lease_end has already passed
+    tenants.filter(t => {
+      if (!t.lease_end) return false;
+      return new Date(t.lease_end) < now;
+    }).forEach(t => {
+      const prop = properties.find(p => p.id == t.property_id);
+      notifications.push({
+        id:    'lease-expired-' + t.id,
+        icon:  'fa-circle-exclamation',
+        color: 'var(--danger)',
+        title: 'Lease Expired',
+        body:  t.first_name + ' ' + t.last_name + (prop ? ' — ' + prop.name : '') + ' · Lease ended ' + fmtDate(t.lease_end),
         time:  fmtDate(t.lease_end)
       });
     });
@@ -3684,7 +3745,7 @@ function appInit() {
   });
 }
 
-
+// ── AUTO-SUSPEND ON PLAN EXPIRY ───────────────
 // ── AUTO-SUSPEND ON PLAN EXPIRY ───────────────
 // Called every boot. Checks BOTH trial_ends_at (free trial) and
 // subscription_ends_at (paid plans). Suspends + signs out if expired.
