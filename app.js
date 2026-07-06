@@ -851,6 +851,56 @@ function loadDashboard() {
   buildActivityFeed();
   buildUpcomingRent();
   buildDashMaintenance();
+  buildDashExpiredLeases();
+}
+
+function buildDashExpiredLeases() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const expired = tenants
+    .filter(t => t.lease_end && new Date(t.lease_end) < today)
+    .sort((a, b) => new Date(b.lease_end) - new Date(a.lease_end));
+
+  const el    = document.getElementById('dash-expired-leases');
+  const cntEl = document.getElementById('dash-expired-count');
+  if (!el) return;
+
+  if (cntEl) cntEl.textContent = expired.length ? `(${expired.length})` : '';
+
+  if (!expired.length) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-sub">No expired leases</div></div>`;
+    return;
+  }
+
+  el.innerHTML = `<div class="table-wrap"><table>
+    <thead><tr>
+      <th>Tenant</th><th>Property</th><th>Lease Ended</th><th>Days Overdue</th><th>Status</th><th>Actions</th>
+    </tr></thead>
+    <tbody>${expired.map(t => {
+    const prop      = properties.find(p => p.id == t.property_id);
+    const daysOver  = Math.floor((today - new Date(t.lease_end)) / 86400000);
+    const statusCls = t.status === 'active' ? 'badge-warning' : 'badge-info';
+    return `<tr>
+        <td><strong>${t.first_name} ${t.last_name}</strong></td>
+        <td>${prop ? prop.name : '—'}</td>
+        <td style="color:var(--danger)">${fmtDate(t.lease_end)}</td>
+        <td><span class="badge badge-danger">${daysOver} day${daysOver !== 1 ? 's' : ''}</span></td>
+        <td><span class="badge ${statusCls}">${t.status}</span></td>
+        <td><div class="action-btns">
+          <button class="btn btn-sm btn-icon" title="Edit tenant" onclick="editTenant('${t.id}')"><i class="fa-solid fa-pen"></i></button>
+          <button class="btn btn-sm btn-icon btn-success" title="Renew lease" onclick="renewLease('${t.id}')"><i class="fa-solid fa-rotate-right"></i></button>
+        </div></td>
+      </tr>`;
+  }).join('')}
+    </tbody>
+  </table></div>`;
+}
+
+// Opens the tenant edit modal pre-focused for lease renewal
+function renewLease(tenantId) {
+  editTenant(tenantId);
+  toast('Update the lease end date to renew', 'success');
 }
 
 function buildActivityFeed() {
