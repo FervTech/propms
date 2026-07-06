@@ -1571,15 +1571,25 @@ async function resolveMaintenanceQuick(id) {
 }
 
 // ── RECEIPT / INVOICE ─────────────────────────
-function openReceipt(payId) {
+async function openReceipt(payId) {
   const pay = payments.find(p => p.id == payId);
   if (!pay) return;
   currentReceiptPayId = payId;
   const tenant    = tenants.find(t => t.id == pay.tenant_id);
   const prop      = tenant ? properties.find(p => p.id == tenant.property_id) : null;
   const isReceipt = pay.status === 'paid';
-  const prefix = isReceipt ? 'RCP' : 'INV';
-  const receiptNo = getNextReceiptNumber(prefix);
+  const prefix    = isReceipt ? 'RCP' : 'INV';
+
+  // Reuse existing receipt_no if already generated, otherwise create and save
+  let receiptNo = pay.receipt_no || null;
+  if (!receiptNo) {
+    receiptNo = getNextReceiptNumber(prefix);
+    // Persist to Supabase so the same number is always used for this payment
+    const { error } = await sb.update('payments', payId, { receipt_no: receiptNo });
+    if (!error) {
+      pay.receipt_no = receiptNo; // update local state
+    }
+  }
   _currentReceiptNo = receiptNo;
   document.getElementById('receipt-modal-title').textContent = isReceipt ? 'Payment Receipt' : 'Invoice';
 
