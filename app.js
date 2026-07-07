@@ -1340,7 +1340,7 @@ function renderPaymentsPage() {
           <button class="btn btn-sm btn-icon" title="View details" onclick="viewPaymentDetail('${pay.id}')"><i class="fa-solid fa-eye"></i></button>
           <button class="btn btn-sm btn-icon" title="Edit" onclick="editPayment('${pay.id}')"><i class="fa-solid fa-pen"></i></button>
           ${pay.status !== 'paid' ? `<button class="btn btn-sm btn-icon btn-success" title="Mark as paid" onclick="quickMarkPaid('${pay.id}')"><i class="fa-solid fa-circle-check"></i></button>` : ''}
-          <button class="btn btn-sm btn-icon btn-success" title="Receipt" onclick="openReceipt('${pay.id}')"><i class="fa-solid fa-receipt"></i></button>
+          <button class="btn btn-sm btn-icon btn-success" title="${pay.receipt_no ? 'Receipt · ' + pay.receipt_no : 'Generate Receipt'}" onclick="openReceipt('${pay.id}')"><i class="fa-solid fa-receipt"></i>${pay.receipt_no ? `<span style="font-size:9px;margin-left:2px;font-family:var(--font-mono)">${pay.receipt_no}</span>` : ''}</button>
           <button class="btn btn-sm btn-icon btn-danger" title="Delete" onclick="deletePayment('${pay.id}')"><i class="fa-solid fa-trash"></i></button>
         </div>
       </td>
@@ -1459,6 +1459,7 @@ function viewPaymentDetail(id) {
         <div class="detail-item"><label>Date</label><div class="detail-value">${fmtDate(pay.date)}</div></div>
         <div class="detail-item"><label>Type</label><div class="detail-value" style="text-transform:capitalize">${pay.type.replace('_', ' ')}</div></div>
         <div class="detail-item"><label>Reference ID</label><div class="detail-value" style="font-family:var(--font-mono);font-size:12px">#${pay.id}</div></div>
+        <div class="detail-item"><label>Receipt / Invoice No.</label><div class="detail-value" style="font-family:var(--font-mono);font-size:12px">${pay.receipt_no || '<span style="color:var(--text-muted)">Not yet generated</span>'}</div></div>
         <div class="detail-item"><label>Recorded</label><div class="detail-value">${fmtDate(pay.created_at)}</div></div>
       </div>
       ${pay.notes ? `<div style="margin-top:12px"><label>Notes</label><div style="background:var(--bg-elevated);padding:10px 12px;border-radius:8px;font-size:13px;margin-top:4px">${pay.notes}</div></div>` : ''}
