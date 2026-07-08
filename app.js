@@ -1378,7 +1378,7 @@ function filterPayments() {
   paymentFilteredData = payments.filter(pay => {
     const tenant  = tenants.find(t => t.id == pay.tenant_id);
     const name    = tenant ? `${tenant.first_name} ${tenant.last_name}`.toLowerCase() : '';
-    return (!q       || name.includes(q) || String(pay.amount).includes(q)) &&
+    return (!q       || name.includes(q) || String(pay.amount).includes(q) || (pay.receipt_no && pay.receipt_no.toLowerCase().includes(q))) &&
       (!st      || pay.status === st) &&
       (!mo      || (pay.date && pay.date.startsWith(mo))) &&
       (!type    || pay.type === type) &&
