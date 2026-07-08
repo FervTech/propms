@@ -65,12 +65,13 @@ function toggleSidebar() {
 }
 
 // ── RECEIPT COUNTER ─────────────────────────
-function getNextReceiptNumber(prefix = 'RCP') {
-  const today = new Date();
-  const y = String(today.getFullYear()).slice(2);
-  const m = String(today.getMonth() + 1).padStart(2, '0');
-  const d = String(today.getDate()).padStart(2, '0');
-  const dateKey = `${y}${m}${d}`;
+function getNextReceiptNumber(prefix = 'RCP', paymentDate = null) {
+  // Use the payment's own date so the ID matches when the payment was made
+  const ref = paymentDate ? new Date(paymentDate) : new Date();
+  const y = String(ref.getFullYear()).slice(2);
+  const m = String(ref.getMonth() + 1).padStart(2, '0');
+  const d = String(ref.getDate()).padStart(2, '0');
+  const dateKey    = `${y}${m}${d}`;
   const storageKey = `propms_receipt_counter_${dateKey}`;
   let counter = parseInt(localStorage.getItem(storageKey) || '0', 10) + 1;
   localStorage.setItem(storageKey, String(counter));
@@ -1584,7 +1585,7 @@ async function openReceipt(payId) {
   // Reuse existing receipt_no if already generated, otherwise create and save
   let receiptNo = pay.receipt_no || null;
   if (!receiptNo) {
-    receiptNo = getNextReceiptNumber(prefix);
+    receiptNo = getNextReceiptNumber(prefix, pay.date);
     // Persist to Supabase so the same number is always used for this payment
     const { error } = await sb.update('payments', payId, { receipt_no: receiptNo });
     if (!error) {
