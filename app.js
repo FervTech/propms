@@ -2744,7 +2744,15 @@ async function deletePayment(id) {
 }
 
 async function quickMarkPaid(id) {
-  await sb.update('payments', id, { status: 'paid' });
+  const pay = payments.find(p => p.id == id);
+  const updates = { status: 'paid' };
+
+  // If an invoice ID was already stored, swap INV → RCP to reflect paid status
+  if (pay && pay.receipt_no && pay.receipt_no.startsWith('INV-')) {
+    updates.receipt_no = pay.receipt_no.replace(/^INV-/, 'RCP-');
+  }
+
+  await sb.update('payments', id, updates);
   await loadAll();
   filterPayments();
   toast('Payment marked as paid', 'success');
