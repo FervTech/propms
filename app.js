@@ -2747,9 +2747,10 @@ async function quickMarkPaid(id) {
   const pay = payments.find(p => p.id == id);
   const updates = { status: 'paid' };
 
-  // If an invoice ID was already stored, swap INV → RCP to reflect paid status
-  if (pay && pay.receipt_no && pay.receipt_no.startsWith('INV-')) {
-    updates.receipt_no = pay.receipt_no.replace(/^INV-/, 'RCP-');
+  // Generate a fresh RCP number using today's date (the date payment was confirmed)
+  if (pay) {
+    const today = new Date().toISOString().slice(0, 10);
+    updates.receipt_no = getNextReceiptNumber('RCP', today);
   }
 
   await sb.update('payments', id, updates);
